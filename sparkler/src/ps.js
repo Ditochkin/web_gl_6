@@ -7,10 +7,8 @@ var vsSource = [
     "",
     "varying float v_alpha;",
     "varying vec2 fragTexCoord;",
-    "varying vec2 globalPos;",
     "",
     "void main() {",
-    "    globalPos = a_position;",
     "    fragTexCoord = vertTexCoord;",
     "    gl_Position = vec4(a_position, 1.0, 1.0);",
     "    v_alpha = a_alpha;",
@@ -23,14 +21,15 @@ var fsSource = [
     "",
     "varying float v_alpha;",
     "varying vec2 fragTexCoord;",
-    "uniform sampler2D sampler;",
-    "varying vec2 globalPos;",
+    'uniform sampler2D sampler;',
     "",
     "void main() {",
     "    vec4 texture = texture2D(sampler, fragTexCoord);",
-    "    gl_FragColor = vec4(texture.rgb, texture.a - (abs(globalPos[1]) + abs(globalPos[0])) *0.5);",
+    "    vec3 blck = vec3(0.0, 0.0, 0.0);",
+    "    gl_FragColor = vec4(texture.rgb * v_alpha, 1.0);",
     "}"
 ].join("\n");
+ 
  
 var Particle = function() {
     // Позиция частицы
@@ -77,14 +76,14 @@ var ParticleManager = function(numParticles, pps) {
         this.particles_[i] = new Particle();
     }
  
-    // // Позиция эмиттера 
+    // Позиция эмиттера 
     this.emitterX_ = 0;
     this.emitterY_ = 0;
  
     // Начальная скорость частицы
-    this.velInit_ = 0.2;
+    this.velInit_ = 0.5;
     // Разброс (+-) начальной скорости частицы
-    this.velDisp_ = 0.05;
+    this.velDisp_ = 0.1;
  
     // Начальное ускорение частицы
     this.accInit_ = 0.0;
@@ -92,12 +91,12 @@ var ParticleManager = function(numParticles, pps) {
     this.accDisp_ = 0.025;
  
     // Начальный размер частицы
-    this.sizeInit_ = 0.4;
+    this.sizeInit_ = 0.02;
     // Разброс (+-) начального размера частицы
-    this.sizeDisp_ = 0.05;
+    this.sizeDisp_ = 0.005;
  
     // Сила гравитации, направлена вниз
-    this.gravity_ = 0;
+    this.gravity_ = 0.7;
  
     // Массив вершин
     this.vertices_ = new Float32Array(numParticles * this.FLOATS_PER_PARTICLE);
@@ -209,19 +208,19 @@ ParticleManager.prototype = {
             particle.alpha_ -= particle.vAlpha_ * dt;
  
             // Деактивация невидимой частицы
-            if (particle.alpha_ < -2) {
+            if (particle.alpha_ < 0) {
                 particle.active_ = false;
                 continue;
             }
  
             // Выключаем частицы за пределами экрана
-            if (particle.x_ < -2.0 || particle.x_ > 2.0) {
+            if (particle.x_ < -1.0 || particle.x_ > 1.0) {
                 particle.active_ = false;
                 continue;
             }
  
             // Выключаем частицы за пределами экрана
-            if (particle.y_ < -2.0) {
+            if (particle.y_ < -1.0) {
                 particle.active_ = false;
                 continue;
             }
@@ -327,9 +326,6 @@ ParticleManager.prototype = {
  
         gl.enableVertexAttribArray(this.texture_);
  
-        let sampler = gl.getUniformLocation(this.shader_, "sampler");
-        gl.uniform1i(sampler, 0);
-
         gl.drawArrays(gl.TRIANGLES, 0, this.numActiveParticles_ * 6);
  
         gl.disableVertexAttribArray(this.alphaId_);

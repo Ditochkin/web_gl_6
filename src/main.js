@@ -1,14 +1,8 @@
 "use strict";
  
-window.requestAnimFrame = (function() {
-    return window.requestAnimationFrame ||
-        window.webkitRequestAnimationFrame ||
-        window.mozRequestAnimationFrame ||
-        window.oRequestAnimationFrame ||
-        window.msRequestAnimationFrame ||
-        function(callback, element) {
-            window.setTimeout(callback, 1000.0/30.0);
-        };
+window.requestAnimFrame = (function() 
+{
+    return window.requestAnimationFrame;
 })();
  
  
@@ -23,7 +17,7 @@ function update(dt) {
  
  
 function drawFrame() {
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clearColor(0.7, 0.7, 0.7, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     particleManager.render(gl);
 }
@@ -41,36 +35,48 @@ function render() {
     drawFrame();
 }
  
-function creatingTexture(img)
-{
-    var boxTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, boxTexture);
+function handleTextureLoaded(image, texture) {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    
-    gl.texImage2D
-    (
-        gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        document.getElementById(img)
-    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+}
 
-    return boxTexture
+function registerTexture(imgSRC) {
+    let texture = gl.createTexture();
+    let image = new Image();
+    image.onload = function () {
+        handleTextureLoaded(image, texture);
+    }
+    image.src = imgSRC;
+    
+    return texture
 }
  
 function startRender(canvas_id) {
     var canvas = document.getElementById(canvas_id);
     gl = canvas.getContext("experimental-webgl");
 
-    creatingTexture("fog-img");
-    gl.activeTexture(gl.TEXTURE_0);
- 
-    particleManager = new ParticleManager(10000, 1000);
+    registerTexture("src/fog.png");
+
+    particleManager = new ParticleManager(500, 50);
     particleManager.setPosition(0.0, 0.0);
- 
+    render();
+}
+
+function startRender2(canvas_id) {
+    var canvas = document.getElementById(canvas_id);
+
+    registerTexture("src/fog.png");
+
+    particleManager = new ParticleManager(500, 50);
+    particleManager.setPosition(0.0, 0.0);
     render();
 }
 
 startRender("webgl-canvas")
+
+startRender2("webgl-canvas-2")
