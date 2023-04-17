@@ -4,12 +4,15 @@ var vsSource = [
     "attribute vec2 a_position;",
     "attribute float a_alpha;",
     "attribute vec2 vertTexCoord;",
+    "attribute float color;",
     "",
     "varying float v_alpha;",
     "varying vec2 fragTexCoord;",
     "varying vec2 globalPos;",
+    "varying float colorR;",
     "",
     "void main() {",
+    "    colorR = color;",
     "    globalPos = a_position;",
     "    fragTexCoord = vertTexCoord;",
     "    gl_Position = vec4(a_position, 1.0, 1.0);",
@@ -23,38 +26,43 @@ var fsSource = [
     "",
     "varying float v_alpha;",
     "varying vec2 fragTexCoord;",
+    "varying float colorR;",
     "uniform sampler2D sampler;",
     "varying vec2 globalPos;",
     "",
     "void main() {",
-    "    vec4 texture = texture2D(sampler, fragTexCoord);",
-    "    gl_FragColor = vec4(texture.rgb, texture.a - (abs(globalPos[1]) + abs(globalPos[0])) *0.5);",
+    "    float r = 0.0, g = 0.0, b = 0.0;",
+    "    if (colorR <= 0.33){",
+    "       r = 0.95; g = 0.2; b = 0.3;",
+    "    }",
+    "    else if (colorR <= 0.67){",
+    "       r = 0.2; g = 0.8; b = 0.3;",
+    "    }",
+    "    else{",
+    "       r = 0.3; g = 0.1; b = 0.9;",
+    "    }",
+    "    gl_FragColor = vec4(r, g, b, v_alpha);",
     "}"
 ].join("\n");
  
 var Particle = function() {
-    // Позиция частицы
     this.x_ = 0;
     this.y_ = 0;
  
-    // Скорость движения частицы по x, y
     this.vx_ = 0;
     this.vy_ = 0;
  
-    // Ускорение частицы по x, y
     this.ax_ = 0;
     this.ay_ = 0;
  
-    // Прозрачность частицы
     this.alpha_ = 0;
-    // Изменение прозрачности в секунду
     this.vAlpha_ = 0;
  
-    // Размер частицы
     this.size_ = 0;
  
-    // Флаг, что частица активна
     this.active_ = false;
+
+    this.color_ = Math.random();
 };
  
  
@@ -64,97 +72,78 @@ Particle.prototype = {
 
  
 var ParticleManager = function(numParticles, pps) {
-    // Всего float на частицу
-    this.FLOATS_PER_PARTICLE = 30;
+    this.FLOATS_PER_PARTICLE = 36;
  
-    // Количество новых частиц в секунду
     this.pps_ = pps;
  
-    // Инициализируем массив частиц
     this.particles_ = new Array(numParticles);
  
     for (var i = 0; i < numParticles; ++i) {
         this.particles_[i] = new Particle();
     }
  
-    // // Позиция эмиттера 
     this.emitterX_ = 0;
     this.emitterY_ = 0;
  
-    // Начальная скорость частицы
     this.velInit_ = 0.2;
-    // Разброс (+-) начальной скорости частицы
     this.velDisp_ = 0.05;
  
-    // Начальное ускорение частицы
     this.accInit_ = 0.0;
-    // Разброс (+-) начального ускорения частицы
     this.accDisp_ = 0.025;
  
-    // Начальный размер частицы
-    this.sizeInit_ = 0.4;
-    // Разброс (+-) начального размера частицы
-    this.sizeDisp_ = 0.05;
+    this.sizeInit_ = 0.008;
+    this.sizeDisp_ = 0.002;
  
-    // Сила гравитации, направлена вниз
-    this.gravity_ = 0;
+    this.gravity_ = 0.02;
  
-    // Массив вершин
     this.vertices_ = new Float32Array(numParticles * this.FLOATS_PER_PARTICLE);
-    // Количество активных частиц
     this.numActiveParticles_ = 0;
  
-    // Вершинный буфер
     this.vbo_ = null;
  
-    // Шейдер, позиция в шейдере и прозрачность
     this.shader_ = null;
     this.positionId_ = -1;
     this.alphaId_ = -1;
     this.texture_ = -1;
  
-    // Время для вычисления количества новых частиц
     this.realTime_ = 0;
 }
- 
+
+function randAngel()
+{
+    var r = Math.random();
+    // return floor(r * 10.0) / 10.0;
+    var angel = Math.floor(r * 10.0) / 10.0;
+    return angel;
+}
  
 ParticleManager.prototype = {
     constructor : ParticleManager,
  
- 
-    // Активирование частицы
     add : function(particle) {
         if (particle.active_) {
             return;
         }
  
-        // Начальная позиция частицы совпадает с позицием эмиттера
         particle.x_ = this.emitterX_;
         particle.y_ = this.emitterY_;
  
-        // Вычисляем начальное ускорение частицы
         particle.ax_ = this.accInit_ + (Math.random() - 0.5) * this.accDisp_;
         particle.ay_ = this.accInit_ + (Math.random() - 0.5) * this.accDisp_;
  
-        // Направление движения частицы
-        var angle = Math.random() * Math.PI * 2.0;
+        var angle = randAngel() * Math.PI * 2.0;
         var cosA = Math.cos(angle);
         var sinA = Math.sin(angle)
  
-        // Скорость движения
         var vel = (Math.random() - 0.5) * this.velDisp_;
  
-        // Скорость и направление движения частицы
         particle.vx_ = (this.velInit_ + vel) * cosA;
         particle.vy_ = (this.velInit_ + vel) * sinA;
  
-        // Размер частицы
         particle.size_ = this.sizeInit_ + (Math.random() - 0.5) * this.sizeDisp_;
  
-        // Начальная прозрачность
         particle.alpha_ = 1.0;
-        // Уменьшение прозрачности в секунду
-        particle.vAlpha_ = 0.25 + Math.random();
+        particle.vAlpha_ = 0.3 + Math.random() / 5;
  
         // Активируем частицу
         particle.active_ = true;
@@ -164,7 +153,6 @@ ParticleManager.prototype = {
     update : function(dt) {
         this.realTime_ += dt;
  
-        // Вычисляем количество новых частиц
         var newParticleCount = Math.floor(this.pps_ * this.realTime_);
  
         if (newParticleCount > 0) {
@@ -194,33 +182,26 @@ ParticleManager.prototype = {
                 continue;
             }
  
-            // Обновление скорости частицы
             particle.vx_ += particle.ax_ * dt;
             particle.vy_ += particle.ay_ * dt;
  
-            // Обновление позиции частицы
             particle.x_ += particle.vx_ * dt;
             particle.y_ += particle.vy_ * dt;
  
-            // Применение гравитации
             particle.vy_ -= this.gravity_ * dt;
  
-            // Изменение прозрачности
             particle.alpha_ -= particle.vAlpha_ * dt;
  
-            // Деактивация невидимой частицы
             if (particle.alpha_ < -2) {
                 particle.active_ = false;
                 continue;
             }
  
-            // Выключаем частицы за пределами экрана
             if (particle.x_ < -2.0 || particle.x_ > 2.0) {
                 particle.active_ = false;
                 continue;
             }
  
-            // Выключаем частицы за пределами экрана
             if (particle.y_ < -2.0) {
                 particle.active_ = false;
                 continue;
@@ -231,6 +212,7 @@ ParticleManager.prototype = {
             var r = particle.x_ + particle.size_;
             var b = particle.y_ - particle.size_;
             var a = particle.alpha_;
+            var c = particle.color_;
  
             var index = numActiveParticles * this.FLOATS_PER_PARTICLE;
  
@@ -239,36 +221,42 @@ ParticleManager.prototype = {
             vertices[index++] = a;
             vertices[index++] = 0.0;
             vertices[index++] = 0.0;
+            vertices[index++] = c;
  
             vertices[index++] = r;
             vertices[index++] = b;
             vertices[index++] = a;
             vertices[index++] = 1.0;
             vertices[index++] = 0.0;
+            vertices[index++] = c;
  
             vertices[index++] = l;
             vertices[index++] = t;
             vertices[index++] = a;
             vertices[index++] = 0.0;
             vertices[index++] = 1.0;
+            vertices[index++] = c;
  
             vertices[index++] = r;
             vertices[index++] = b;
             vertices[index++] = a;
             vertices[index++] = 1.0;
             vertices[index++] = 0.0;
+            vertices[index++] = c;
  
             vertices[index++] = r;
             vertices[index++] = t;
             vertices[index++] = a;
             vertices[index++] = 1.0;
             vertices[index++] = 1.0;
+            vertices[index++] = c;
  
             vertices[index++] = l;
             vertices[index++] = t;
             vertices[index++] = a;
             vertices[index++] = 0.0;
             vertices[index++] = 1.0;
+            vertices[index++] = c;
  
             numActiveParticles++;
         }
@@ -302,7 +290,7 @@ ParticleManager.prototype = {
             2, 
             gl.FLOAT, 
             false, 
-            5 * Float32Array.BYTES_PER_ELEMENT, 
+            6 * Float32Array.BYTES_PER_ELEMENT, 
             0);
  
         gl.enableVertexAttribArray(this.positionId_);
@@ -312,7 +300,7 @@ ParticleManager.prototype = {
             1, 
             gl.FLOAT, 
             false, 
-            5 * Float32Array.BYTES_PER_ELEMENT, 
+            6 * Float32Array.BYTES_PER_ELEMENT, 
             2 * Float32Array.BYTES_PER_ELEMENT);
  
         gl.enableVertexAttribArray(this.alphaId_);
@@ -322,10 +310,20 @@ ParticleManager.prototype = {
             2, 
             gl.FLOAT, 
             false, 
-            5 * Float32Array.BYTES_PER_ELEMENT, 
+            6 * Float32Array.BYTES_PER_ELEMENT, 
             3 * Float32Array.BYTES_PER_ELEMENT);
  
         gl.enableVertexAttribArray(this.texture_);
+
+        gl.vertexAttribPointer(
+            this.colorR_, 
+            1, 
+            gl.FLOAT, 
+            false, 
+            6 * Float32Array.BYTES_PER_ELEMENT, 
+            5 * Float32Array.BYTES_PER_ELEMENT);
+ 
+        gl.enableVertexAttribArray(this.colorR_);
  
         let sampler = gl.getUniformLocation(this.shader_, "sampler");
         gl.uniform1i(sampler, 0);
@@ -335,6 +333,7 @@ ParticleManager.prototype = {
         gl.disableVertexAttribArray(this.alphaId_);
         gl.disableVertexAttribArray(this.positionId_);
         gl.disableVertexAttribArray(this.texture_);
+        gl.disableVertexAttribArray(this.colorR_);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.useProgram(null);
     },
@@ -357,6 +356,7 @@ ParticleManager.prototype = {
         this.positionId_ = gl.getAttribLocation(shader, "a_position");
         this.alphaId_ = gl.getAttribLocation(shader, "a_alpha");
         this.texture_ = gl.getAttribLocation(shader, "vertTexCoord");
+        this.colorR_ = gl.getAttribLocation(shader, "color");
         this.shader_ = shader;
     },
  
